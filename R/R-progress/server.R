@@ -2,6 +2,7 @@ library(shiny)
 library(ggplot2)
 library(DT)
 library(dplyr)
+library(parallel)
 
 #library(DMwR)
 # Define server logic required to summarize and view the 
@@ -38,7 +39,7 @@ shinyServer(function(input, output, session) {
                                       columnDefs = list(list(width = '20px', targets = c(1, 2))),
                                       order = list(list(4, 'desc'))))
   })
-})
+#})
 
 ## this is the part that does download feature 
 
@@ -48,29 +49,41 @@ shinyServer(function(input, output, session) {
 #   summary(dataset)
 # })
 
-# Show the first "n" observations
-# output$table <- DT::renderDataTable(DT::dataTable({
-#   data <- datasetInput
-#   data
-#   output$select_table <- renderDataTable(datasetInput)
-# })
 
-# output$downloadReport <- downloadHandler(
-#   filename = function(){
-#     paste('my-report',sep='.', switch(
-#       input$format, PDF = pdf, HTML = 'html', Word = 'docx'
-#       ))
-#   },
-#   content = function(file){
-#     s = input$file1
-#     
-#   print('try to render')
-#   out <- render(markdownFile, switch(
-#     input$format,
-#     PDF = pdf_document(), HTML = html_document(), Word = word_document()
-#   ))
-#   file.rename(out, file)
-#   }
-#   )
+output$downloadReport <- downloadHandler(
+  filename = function(){
+    paste('my-report',sep='.', switch(
+      input$format, PDF = 'pdf', HTML = 'html', Word = 'docx'
+      ))
+},
+
+   content = function(file){
+     #s = input$file1
+     src <- normalizePath('report.Rmd')
+     # temporarily switch to the temp dir, in case you do not have write
+     # permission to the current working directory
+     owd <- setwd(tempdir())
+     on.exit(setwd(owd))
+     file.copy(src, 'report.Rmd')
+     
+     library(rmarkdown)
+     out <- render('report.Rmd', switch(
+       input$format,
+       PDF = pdf_document(), HTML = html_document(), Word = word_document()
+     ))
+     file.rename(out, file)
+   }
+)
+
+})
+  # 
+  # print('try to render')
+  # out <- render(markdownFile, switch(
+  #   input$format,
+  #   PDF = pdf_document(), HTML = html_document(), Word = word_document()
+  # ))
+  # file.rename(out, file)
+  # }
+  #)
 
 

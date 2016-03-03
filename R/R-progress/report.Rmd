@@ -1,0 +1,27 @@
+---
+title: "Summary Report"
+output: html_document
+date: "March 3, 2016"
+params: start !date 2016-03-03
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(RUnit)
+library(grid)
+library(gridExtra)
+```
+
+***  
+
+```{r cache, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+##--------------------------------------------------------------------------##
+##
+## Summary_Table Report Version: 3.6
+##
+## Enter today's date to update cache
+##--------------------------------------------------------------------------##
+
