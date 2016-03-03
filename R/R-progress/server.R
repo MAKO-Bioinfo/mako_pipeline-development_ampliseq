@@ -1,3 +1,8 @@
+# This is a visualization app for Mako's annotated vcf files
+# this is the server.R file
+# Jack Yen
+# March 3rd, 2016
+
 library(shiny)
 library(ggplot2)
 library(DT)
