@@ -4,6 +4,9 @@
 #
 # http://shiny.rstudio.com
 #
+# This is a visualization app for Mako's annotated vcf files
+# Jack Yen
+# March 3rd, 2016
 
 library(shiny)
 
