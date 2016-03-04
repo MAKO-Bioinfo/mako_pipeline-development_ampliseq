@@ -2,6 +2,8 @@ name: R-progress
 account: makobioinformatics
 server: shinyapps.io
 appId: 87026
-bundleId: 386849
+bundleId: 386957
 url: https://makobioinformatics.shinyapps.io/R-progress/
-when: 1457038502.46696
+when: 1457045491.38745
+asMultiple: FALSE
+asStatic: FALSE

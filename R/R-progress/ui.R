@@ -34,7 +34,7 @@ shinyUI(fluidPage(
       br(),
       img(src="MAKO_Genomics_small.jpg", height = 200, width = 200),
       br(),
-      h6("Mako Bioinformatics")
+      h5("Mako Bioinformatics")
       #p("Jack Yen")
       # p("View source on",
       #   a("github", 

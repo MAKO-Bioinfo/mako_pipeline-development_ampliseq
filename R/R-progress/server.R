@@ -26,8 +26,11 @@ shinyServer(function(input, output, session) {
       for (i in 1:length(v)){
         if (v[i] == "N") {dataset[,i] <- as.numeric(dataset[,i])}
         else {dataset[,i] <- as.factor(dataset[,i])}
-    }
-    dataset1 <- dataset
+      }
+      
+    dataset
+    #remove_column <- names(dataset()) %in% c ("AAChange.refGene","CLNACC","CLNDSDBID","genomicSuperDups","SIFT_pred","Polyphen2_HDIV_pred","Polyphen2_HVAR_pred","LRT_pred","MutationTaster_pred","MutationAssessor_pred","FATHMM_pred","RadialSVM_pred","LR_pred","CADD_phred")
+    #dataset <- dataset[!remove_column]
     }
   })
   
@@ -41,7 +44,7 @@ shinyServer(function(input, output, session) {
                          filter = "top",  #filter must be at bottom if there is Scroller
                          rownames = FALSE,
                          options=list(pageLength = 10, autoWidth=TRUE,
-                                      columnDefs = list(list(width = '20px', targets = c(1, 2))),
+                                      columnDefs = list(list(width = '10px', targets = c(1, 2))),
                                       order = list(list(4, 'desc'))))
   })
 #})
