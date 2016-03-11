@@ -11,13 +11,13 @@
 library(shiny)
 
 shinyUI(fluidPage(
-  titlePanel(title="Mako AmpliSeq Results"),
+  titlePanel(title="AmpliSeq Cancer Hotspot V2 Annotation Results"),
   sidebarLayout(
     sidebarPanel(
       fileInput('file1', 'Please Upload the annotated csv file',
                 accept=c('text/csv', 'text/comma-separated-values,text/plain', '.csv'),multiple = TRUE),
       
-      numericInput("obs", "Number of observations to view:", 20),
+      numericInput("obs", "Number of observations to view:", 10),
       
       helpText("Note: while the data view will show only the specified",
                "number of observations, the summary will still be based",

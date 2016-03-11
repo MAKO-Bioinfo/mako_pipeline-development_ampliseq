@@ -33,6 +33,8 @@ shinyServer(function(input, output, session) {
     #dataset <- dataset[!remove_column]
     }
   })
+  #remove_column <- names(dataset()) %in% c ("AAChange.refGene","CLNACC","CLNDSDBID","genomicSuperDups","SIFT_pred","Polyphen2_HDIV_pred","Polyphen2_HVAR_pred","LRT_pred","MutationTaster_pred","MutationAssessor_pred","FATHMM_pred","RadialSVM_pred","LR_pred","CADD_phred")
+  #dataset <- dataset[!remove_column]
   
   # output$select_table <- renderDataTable({
   #   dataset()
