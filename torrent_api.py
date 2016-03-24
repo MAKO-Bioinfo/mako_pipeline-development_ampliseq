@@ -11,3 +11,5 @@ print resp_json['fastqlink']
 print resp.content
 
 #(The FASTQ file contents.)tp://10.0.1.74/%s'%resp_json['fastqlink'], auth=('ionadmin', 'ionadmin'))
+
+

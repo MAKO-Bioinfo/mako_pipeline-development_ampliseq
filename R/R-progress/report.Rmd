@@ -1,9 +1,12 @@
 ---
-title: "Summary Report"
+title: "Mako Genomics NGS Testing Report"
 output: html_document
-date: "March 3, 2016"
+date: "`r Sys.Date()`"
 params: start !date 2016-03-03
 ---
+```{r}
+
+```
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
 library(dplyr)
@@ -17,6 +20,7 @@ library(gridExtra)
 
 ***  
 
+
 ```{r cache, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
 ##--------------------------------------------------------------------------##
 ##
@@ -24,4 +28,4 @@ library(gridExtra)
 ##
 ## Enter today's date to update cache
 ##--------------------------------------------------------------------------##
-
+complete_table <- read.csv("with_omim_IonCode0101.csv",header = T)
