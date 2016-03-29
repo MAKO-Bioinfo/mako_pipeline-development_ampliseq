@@ -14,7 +14,9 @@ import luigi
 __LIMS__ = Lims(BASEURI, USERNAME, PASSWORD)
 
 #ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@kona.bdx.com/seqdb')
-ENGINE = create_engine('postgresql+psycopg2://postgres:seqstats@localhost/postgres')
+
+## Have to set the port to 5433 in order to push to the POSTGRESQL DB default is 5432
+ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@localhost:5433/seqdb')
 
 ### This is the testing area
 #os.chdir('/Users/jack/CHP2/output')

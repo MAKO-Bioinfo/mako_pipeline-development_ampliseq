@@ -4,8 +4,8 @@
 ## This is the luigi task that string all steps together
 ## 1. FindNewTorrentRuns
 ## 2. Copy
-## 3. QC ---> DB
-## 4. ANNOTAION ---DB
+## 3. QC ---> QC Database
+## 4. ANNOTAION ---> Annotation Database
 ##
 ## Jack Yen
 ## March 25th, 2016
@@ -56,13 +56,15 @@ LIMS_TORRENT_SERVER_UDF = 'Torrent Server'
 LIMS_TORRENT_REPORT_UDF = 'Torrent Suite Analysis Report'
 LIMS_BARCODE_UDF = 'Sequencing Barcode'
 
+## PATHS TO JSON file for QC metrics
+JSON_RESULTS             = 'plugin_out/coverageAnalysis*/results.json'
 
 ## INPUT & OUTPUT FOLDERS
 TORRENT_PIPELINE_DATA_DIR = '/Volumes/Genetics/Ion_Workflow/data'
 TORRENT_PIPELINE_OUTPUT_DIR = TORRENT_PIPELINE_DATA_DIR
 
 #SQLAlchemy postgreSQL ENGINE
-ENGINE = create_engine('postgresql+psycopg2://postgres:seqstats@localhost/postgres')
+ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@localhost:5433/seqdb')
 
 
 #TORRENT_URL_MAP = {'iontorrent01':'http://pgm.bdx.com','iontorrent02':'http://pgm2.bdx.com'}
@@ -107,8 +109,6 @@ class FindNewTorrentRunsTask(luigi.Task):
     def requires(self):
 
         ## this will query the LIMS and get all the runs
-
-
         torrent_df = lims.get_torrent_metadata()
         dfp = torrent_df.pivot(index='process_id', columns='key', values='value')
         dfdedup = torrent_df.drop_duplicates('process_id')
@@ -187,10 +187,10 @@ class CopyRunTask(luigi.task):
 
         ## rsync -avz -e "sshpass -p ionadmin ssh -p 4040" ionadmin@10.0.1.74:/home/ionguest/results/analysis/output/Home/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017 .
 
-        cmd = ['rsync', '-ahv' ,'-e ','"sshpass -p ionadmin ssh -p 4040"','--no-links','--progress',
+        cmd = ['rsync', '-ahv' ,'-e ','"sshpass -p ionadmin ssh -p 4040" ','--no-links','--progress',
                os.path.join(self.torrent_folder, ''), target_dir]
         subprocess.call(cmd, stdout=outfile, stdin=outfile)
-        print ('COPY STEP : rsync Finished!!!')
+        print ('COPY STEP COMPLETE : rsync Finished!!!')
         print outfile.path
         outfile.close()
 
@@ -200,9 +200,25 @@ class QCMetricsTask(luigi.ExternalTask):
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
     barcode    = luigi.Parameter()
+    def requires(self):
+        return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
+                 process_id=self.process_id,
+                        barcode=self.barcode, table_name='QC_metrics', torrent_folder=self.torrent_folder,
+                        torrent_runid=self.torrent_runid)
+
+    def output(self):
+        return luigi.LocalTarget('output/%s/%s/%s_%s_%s_%s_barcode.csv' % (self.new_project_id, self.process_id,self.project_id,
+                                                                     self.process_id, self.torrent_runid, self.barcode))
+
+    def run(self):
+        json_results_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,JSON_RESULTS)),key=os.path.getmtime)
+
+        json_results = read_json(json_results_path, orient='records')
 
 
-
+        ## this is a testing area
+        ## 
+        json_qc_df = max(glob.glob())
 
 class QCMetricsTableTask(luigi.task):
     new_project_id = luigi.Parameter()
@@ -220,19 +236,6 @@ class QCMetricsTableTask(luigi.task):
         df = DataFrame.from_csv(self.input().path,parse_dates=False)
         connection = ENGINE.connect()
 
-        # #===========================================================================##
-        # # This will update the chip_statistics table whenever there's a code change
-        # # it wiil scan row by row (each row per project_id) and delete existed row
-        # # replace by the new ones
-        # #===========================================================================##
-        # this if for writing to chip-_statistics table to database, if yes Delete data from db using SQLAlchemy expression
-        if self.table_name=="chip_statistics":
-        #if self.table_name.value:'chip_statistics'
-            connection.execute("DELETE from %s WHERE project_id= '%s'" %(self.table_name,self.project_id))
-            connection.close()
-            df.to_sql(self.table_name,ENGINE,if_exists='append',index=True)
-            print "===== Update chip_statistics tables COMPLETE! ===="
-        else:
          # #===========================================================================##
         # # This will update base_statistics, amplicon statistics, chip_statistics table whenever there's a code change
         # # it wiil scan row by row (each row per project_id) and delete existed row
@@ -240,10 +243,10 @@ class QCMetricsTableTask(luigi.task):
         # #===========================================================================##
             #if ENGINE.dialect.has_table(connection, self.table_name):
             #    if self.table_name : ['base_statistics','amplicon_statistics','barcode_statistics']
-            connection.execute("DELETE from %s WHERE project_id= '%s' AND barcode= '%s'" %(self.table_name,self.project_id,self.barcode))
-            connection.close()
-            df.to_sql(self.table_name,ENGINE,if_exists='append',index=True)
-            print "===== Update tables COMPLETE! ===="
+        connection.execute("DELETE from %s WHERE project_id= '%s' AND barcode= '%s'" %(self.table_name,self.project_id,self.barcode))
+        connection.close()
+        df.to_sql(self.table_name,ENGINE,if_exists='append',index=True)
+        print "===== Update tables COMPLETE! ===="
 
         timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
         with self.output().open('w') as outfile:
