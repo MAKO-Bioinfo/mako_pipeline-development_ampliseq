@@ -5,7 +5,7 @@
 ## 1. FindNewTorrentRuns
 ## 2. Copy
 ## 3. QC ---> QC Database
-## 4. ANNOTAION ---> Annotation Database
+## 4. ANNOTATION ---> Annotation Database
 ##
 ## Jack Yen
 ## March 25th, 2016
@@ -18,6 +18,7 @@ import glob
 import os
 import subprocess
 import json
+from pandas.io.json import json_normalize
 
 from genologics.lims import *
 from genologics.config import BASEURI, USERNAME, PASSWORD
@@ -31,6 +32,7 @@ import requests
 import re
 import sys
 import errno
+import json
 
 from genologics.lims import *
 from genologics.config import BASEURI, USERNAME, PASSWORD
@@ -38,13 +40,16 @@ from collections import defaultdict
 import pandas as pd
 import requests_cache
 import requests
+
+## import the lims.py file that has all the functions
 import lims
 
 __LIMS__ = Lims(BASEURI, USERNAME, PASSWORD)
 
 
 ## set a working directory
-os.chdir('/Volumes/Genetics/Ion_Workflow')
+#os.chdir('/Volumes/Genetics/Ion_Workflow')
+os.chdir('/Volumes/NGS/Ion_Workflow')
 
 TORRENT_DATA = 'ionadmin@10.0.1.74:/home/ionguest/results/analysis/output/Home'
 
@@ -60,7 +65,7 @@ LIMS_BARCODE_UDF = 'Sequencing Barcode'
 JSON_RESULTS             = 'plugin_out/coverageAnalysis*/results.json'
 
 ## INPUT & OUTPUT FOLDERS
-TORRENT_PIPELINE_DATA_DIR = '/Volumes/Genetics/Ion_Workflow/data'
+TORRENT_PIPELINE_DATA_DIR = '/Volumes/NGS/Ion_Workflow/data'
 TORRENT_PIPELINE_OUTPUT_DIR = TORRENT_PIPELINE_DATA_DIR
 
 #SQLAlchemy postgreSQL ENGINE
@@ -194,33 +199,7 @@ class CopyRunTask(luigi.task):
         print outfile.path
         outfile.close()
 
-
-class QCMetricsTask(luigi.ExternalTask):
-    new_project_id = luigi.Parameter()
-    project_id = luigi.Parameter()
-    process_id = luigi.Parameter()
-    barcode    = luigi.Parameter()
-    def requires(self):
-        return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
-                 process_id=self.process_id,
-                        barcode=self.barcode, table_name='QC_metrics', torrent_folder=self.torrent_folder,
-                        torrent_runid=self.torrent_runid)
-
-    def output(self):
-        return luigi.LocalTarget('output/%s/%s/%s_%s_%s_%s_barcode.csv' % (self.new_project_id, self.process_id,self.project_id,
-                                                                     self.process_id, self.torrent_runid, self.barcode))
-
-    def run(self):
-        json_results_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,JSON_RESULTS)),key=os.path.getmtime)
-
-        json_results = read_json(json_results_path, orient='records')
-
-
-        ## this is a testing area
-        ## 
-        json_qc_df = max(glob.glob())
-
-class QCMetricsTableTask(luigi.task):
+class TableTask(luigi.task):
     new_project_id = luigi.Parameter()
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
@@ -235,8 +214,7 @@ class QCMetricsTableTask(luigi.task):
     def run(self):
         df = DataFrame.from_csv(self.input().path,parse_dates=False)
         connection = ENGINE.connect()
-
-         # #===========================================================================##
+        # #===========================================================================##
         # # This will update base_statistics, amplicon statistics, chip_statistics table whenever there's a code change
         # # it wiil scan row by row (each row per project_id) and delete existed row
         # # replace by the new ones
@@ -251,6 +229,99 @@ class QCMetricsTableTask(luigi.task):
         timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
         with self.output().open('w') as outfile:
             outfile.write('done at finished at {t}'.format(t=timestamp))
+
+class QCMetricsTask(luigi.ExternalTask):
+    new_project_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    process_id = luigi.Parameter()
+    barcode    = luigi.Parameter()
+    def requires(self):
+        return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
+                 process_id=self.process_id,
+                        barcode=self.barcode, table_name='QC_metrics_table', torrent_folder=self.torrent_folder,
+                        torrent_runid=self.torrent_runid)
+
+    def output(self):
+        return luigi.LocalTarget('output/%s/%s/%s_%s_%s_%s_barcode.csv' % (self.new_project_id, self.process_id,self.project_id,
+                                                                     self.process_id, self.torrent_runid, self.barcode))
+
+    def run(self):
+        json_results_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,JSON_RESULTS)),key=os.path.getmtime)
+
+        json_results = read_json(json_results_path, orient='records')
+
+
+        ## this is a testing area
+        ##
+        json_qc_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out' \
+                       '/coverageAnalysis_out.6/results.json'
+
+        with open(json_qc_path) as json_data:
+            data = json.load(json_data)
+            #print data
+        json_qc_dataframe = DataFrame.from_dict(data['barcodes']).transpose()
+        json_qc_dataframe.reset_index(level=0,inplace=True)
+
+
+        ## write to a csv file as a record
+        json_qc_dataframe.to_csv(self.output().path, header=True, index=False)
+        print "======= QCMetrics_Task writing to QC.csv COMPLETE! ======"
+
+        json_qc_dataframe.to_sql('qc_df',ENGINE,if_exists='replace',index=true)
+
+class QCMetricsDBTask(TableTask):
+    def requires(self):
+        return QCMetricsTask(data_dir=self.data_dir,new_project_id=self.new_project_id,project_id=self.project_id,
+                            process_id=self.process_id,
+                            barcode=self.barcode, table_name=self.table_name, torrent_folder=self.torrent_folder,
+                            torrent_runid=self.torrent_runid)
+
+class VariantAnnotationTask(luigi.task):
+    new_project_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    process_id = luigi.Parameter()
+    barcode    = luigi.Parameter()
+
+    def requires(self):
+        return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
+                     process_id=self.process_id,
+                        barcode=self.barcode, table_name='QC_metrics_table',
+                        torrent_folder=self.torrent_folder, torrent_runid=self.torrent_runid)
+    def output(self):
+        return luigi.LocalTarget('output/%s/%s/%s_%s_%s_chip.csv' % (self.new_project_id, self.process_id,self.project_id, self.process_id,
+                                                                  self.torrent_runid))
+
+    def run(self):
+        outfile = self.output().open('w')
+
+#table_annovar.pl input/NA12878_platinum_genomics.vcf.gz.avinput /usr/local/ngs/annovar/humandb/ -buildver hg19 -out
+        # NA12878_platinum_genomics.vcf.gz.avinput.myanno -remove -protocol refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f -nastring . -csvout
+
+
+        ## this is a testing area
+        vcf_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out/' \
+                   'plugin_out/variantCaller_out.8/IonCode_0101/TSVC_variants.genome.vcf'
+
+        # NA12878_platinum_genomics.vcf.gz.avinput.myanno -remove -protocol refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f -nastring . -csvout"
+        cmd = ['table_annovar.pl ','vcf_path','/usr/local/ngs/annovar/humandb/','-buildver hg19','-out',
+               self.project_id+self.barcode,'-remove','-protocol',
+               'refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,'
+               'clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f',
+               '-csvout']
+
+
+        cmd = ['/usr/local/ngs/annovar/table_annovar.pl ',vcf_path,'/usr/local/ngs/annovar/humandb/','-buildver hg19',
+               '-out',
+               'test.myanno','-remove','-protocol',
+               'refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,'
+               'clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f',
+               '-csvout']
+
+        subprocess.call(cmd, stdout=outfile, stdin=outfile)
+        print ('ANNOTATION STEP COMPLETE : ANNOVAR Finished!!!')
+        print outfile.path
+        outfile.close()
+
 
 
 class CalculateRunTask(luigi.task):
