@@ -16,7 +16,12 @@ __LIMS__ = Lims(BASEURI, USERNAME, PASSWORD)
 #ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@kona.bdx.com/seqdb')
 
 ## Have to set the port to 5433 in order to push to the POSTGRESQL DB default is 5432
-ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@localhost:5433/seqdb')
+## this is for local connection
+#ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@localhost:5433/seqdb')
+
+
+ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@10.0.1.79:5432/seqdb')
+
 
 ### This is the testing area
 #os.chdir('/Users/jack/CHP2/output')
@@ -34,7 +39,7 @@ omim_database_df = DataFrame.from_csv(omim_database_path,index_col=None)
 annotated_df = DataFrame.merge(annovar_df,omim_database_df,how="left",on="Gene.refGene")
 ## ADD the INDEX as LIMS ID
 annotated_df['project_id'] = Series('ACC101',index=annotated_df.index)
-annotated_df.to_sql('annotated_df',ENGINE,if_exists='replace',index=true)
+annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=true)
 
 ## CLEAN UP THE COLUMNS
 

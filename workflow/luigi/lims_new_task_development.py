@@ -69,7 +69,10 @@ TORRENT_PIPELINE_DATA_DIR = '/Volumes/NGS/Ion_Workflow/data'
 TORRENT_PIPELINE_OUTPUT_DIR = TORRENT_PIPELINE_DATA_DIR
 
 #SQLAlchemy postgreSQL ENGINE
-ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@localhost:5433/seqdb')
+## this is for local connection
+#ENGINE = create_engine('postgresql+psycopg2://seqstats:seqstats@localhost:5433/seqdb')
+
+ENGINE = create_engine('postgresql+psycopg2://postgres:seqstats@10.0.1.79:5432/seqdb')
 
 
 #TORRENT_URL_MAP = {'iontorrent01':'http://pgm.bdx.com','iontorrent02':'http://pgm2.bdx.com'}
@@ -267,7 +270,7 @@ class QCMetricsTask(luigi.ExternalTask):
         json_qc_dataframe.to_csv(self.output().path, header=True, index=False)
         print "======= QCMetrics_Task writing to QC.csv COMPLETE! ======"
 
-        json_qc_dataframe.to_sql('qc_df',ENGINE,if_exists='replace',index=true)
+        json_qc_dataframe.to_sql('qc_table',ENGINE,if_exists='replace',index=true)
 
 class QCMetricsDBTask(TableTask):
     def requires(self):
