@@ -76,6 +76,11 @@ TORRENT_PIPELINE_DATABASE_DIR = '/Volumes/NGS/Ion_Workflow/database'
 ENGINE = create_engine('postgresql+psycopg2://postgres:seqstats@10.0.1.79:5432/seqdb')
 
 
+
+sys.path.append('/home/jyen/workspace/mako_pipeline-development_ampliseq')
+
+
+
 #TORRENT_URL_MAP = {'iontorrent01':'http://pgm.bdx.com','iontorrent02':'http://pgm2.bdx.com'}
 TORRENT_URL_MAP = {'ionadmin':'http://10.0.1.74','ionadmin':'http://10.0.1.74'}
 
@@ -401,24 +406,16 @@ class CalculateRunTask(luigi.task):
                                                                                                   self.process_id,
                                                                                                   barcode)
             tasks.append(
-                BarcodeDBTask(data_dir=CHP2_PIPELINE_DATA_DIR,new_project_id=self.new_project_id,project_id=self.project_id,
-                                       process_id=self.process_id, barcode=barcode, table_name='barcode_statistics',
+                QCMetricsDBTask(data_dir=TORRENT_PIPELINE_OUTPUT_DIR,new_project_id=self.new_project_id,project_id=self.project_id,
+                                       process_id=self.process_id, barcode=barcode, table_name='qc_table',
                                        torrent_folder=self.torrent_folder, torrent_runid=self.torrent_runid))
             tasks.append(
-                AmpliconDBTask(data_dir=CHP2_PIPELINE_DATA_DIR,new_project_id=self.new_project_id,project_id=self.project_id,
+                VariantAnnotationDBTask(data_dir=TORRENT_PIPELINE_OUTPUT_DIR,new_project_id=self.new_project_id,project_id=self.project_id,
                                process_id=self.process_id,
-                               barcode=barcode, table_name='amplicon_statistics', torrent_folder=self.torrent_folder,
+                               barcode=barcode, table_name='annotated_variant_table',
+                                        torrent_folder=self.torrent_folder,
                                torrent_runid=self.torrent_runid))
-            tasks.append(
-                BaseDBTask(data_dir=CHP2_PIPELINE_DATA_DIR,new_project_id=self.new_project_id,project_id=self.project_id,
-                           process_id=self.process_id,
-                           barcode=barcode, table_name='base_statistics', torrent_folder=self.torrent_folder,
-                           torrent_runid=self.torrent_runid))
-            tasks.append(
-                ChipDBTask(data_dir=CHP2_PIPELINE_DATA_DIR,new_project_id=self.new_project_id,project_id=self.project_id,
-                           process_id=self.process_id,
-                           barcode=barcode, table_name='chip_statistics', torrent_folder=self.torrent_folder,
-                           torrent_runid=self.torrent_runid))
+
         return tasks
     def output(self):
         ## ignore timestamp to get rid of the unfullfill error

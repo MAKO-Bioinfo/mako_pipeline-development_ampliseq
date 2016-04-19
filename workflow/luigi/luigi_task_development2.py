@@ -31,7 +31,7 @@ annovar_csv_path = os.path.join(PIPELINE_OUTPUT_DIR,'TSVC_variants_IonCode_0101_
 
 annovar_csv_path2 = os.path.join('/Volumes/NGS/Ion_Workflow/output','NA12878_platinum_genomics.vcf.gz.avinput.myanno.hg19_multianno.csv')
 
-annovar_csv_path3 = os.path.join('/Volumes/Genetics/Ion_Workflow/hereditary_variants_avinput.myanno.hg19_multianno.csv')
+annovar_csv_path3 = os.path.join('/Volumes/Genetics/Ion_Workflow/testing/GRCh37_hereditary_variants_avinput.myanno.hg19_multianno.csv')
 
 omim_database_path = os.path.join(PIPELINE_OUTPUT_DIR,'database','omim_new_info.csv')
 
@@ -47,7 +47,7 @@ annotated_df = DataFrame.merge(annovar_df,omim_database_df,how="left",on="Gene.r
 ## ADD the INDEX as LIMS ID
 annotated_df['project_id'] = Series('ACC101',index=annotated_df.index)
 
-annotated_df.to_csv('hereditary_variants.csv',index=None)
+annotated_df.to_csv('GRCh37_hereditary_variants.csv',index=None)
 
 annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=true)
 
