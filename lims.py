@@ -19,7 +19,7 @@ import requests_cache
 import requests
 
 ## set a working directory
-os.chdir('/Volumes/Genetics/Ion_Workflow')
+#os.chdir('/Volumes/Genetics/Ion_Workflow')
 
 
 #TORRENT_02_MOUNT = '/Volumes/Runs2'
@@ -40,8 +40,8 @@ LIMS_BARCODE_UDF = 'Sequencing Barcode'
 
 
 ## INPUT & OUTPUT FOLDERS
-TORRENT_PIPELINE_DATA_DIR = '/Volumes/Genetics/Ion_Workflow/data'
-TORRENT_PIPELINE_OUTPUT_DIR = TORRENT_PIPELINE_DATA_DIR
+#TORRENT_PIPELINE_DATA_DIR = '/Volumes/Genetics/Ion_Workflow/data'
+#TORRENT_PIPELINE_OUTPUT_DIR = TORRENT_PIPELINE_DATA_DIR
 
 
 #TORRENT_URL_MAP = {'iontorrent01':'http://pgm.bdx.com','iontorrent02':'http://pgm2.bdx.com'}
