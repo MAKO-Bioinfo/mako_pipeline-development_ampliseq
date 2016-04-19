@@ -49,7 +49,7 @@ __LIMS__ = Lims(BASEURI, USERNAME, PASSWORD)
 
 ## set a working directory
 #os.chdir('/Volumes/Genetics/Ion_Workflow')
-os.chdir('/Volumes/NGS/Ion_Workflow')
+os.chdir('/Volumes/NGS/Ion_Workflow/')
 
 TORRENT_DATA = 'ionadmin@10.0.1.74:/home/ionguest/results/analysis/output/Home'
 
@@ -66,7 +66,8 @@ JSON_RESULTS             = 'plugin_out/coverageAnalysis*/results.json'
 
 ## INPUT & OUTPUT FOLDERS
 TORRENT_PIPELINE_DATA_DIR = '/Volumes/NGS/Ion_Workflow/data'
-TORRENT_PIPELINE_OUTPUT_DIR = TORRENT_PIPELINE_DATA_DIR
+TORRENT_PIPELINE_OUTPUT_DIR = '/Volumes/NGS/Ion_Workflow/output'
+TORRENT_PIPELINE_DATABASE_DIR = '/Volumes/NGS/Ion_Workflow/database'
 
 #SQLAlchemy postgreSQL ENGINE
 ## this is for local connection
@@ -270,7 +271,7 @@ class QCMetricsTask(luigi.ExternalTask):
         json_qc_dataframe.to_csv(self.output().path, header=True, index=False)
         print "======= QCMetrics_Task writing to QC.csv COMPLETE! ======"
 
-        json_qc_dataframe.to_sql('qc_table',ENGINE,if_exists='replace',index=true)
+        #json_qc_dataframe.to_sql('qc_table',ENGINE,if_exists='replace',index=true)
 
 class QCMetricsDBTask(TableTask):
     def requires(self):
@@ -284,6 +285,7 @@ class VariantAnnotationTask(luigi.task):
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
     barcode    = luigi.Parameter()
+    os.chdir('/Volumes/NGS/Ion_Workflow/output')
 
     def requires(self):
         return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
@@ -296,35 +298,81 @@ class VariantAnnotationTask(luigi.task):
 
     def run(self):
         outfile = self.output().open('w')
-
-#table_annovar.pl input/NA12878_platinum_genomics.vcf.gz.avinput /usr/local/ngs/annovar/humandb/ -buildver hg19 -out
-        # NA12878_platinum_genomics.vcf.gz.avinput.myanno -remove -protocol refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f -nastring . -csvout
-
-
         ## this is a testing area
-        vcf_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out/' \
-                   'plugin_out/variantCaller_out.8/IonCode_0101/TSVC_variants.genome.vcf'
+        # vcf_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out' \
+        #            '/variantCaller_out.8/IonCode_0101/TSVC_variants.genome.vcf'
 
-        # NA12878_platinum_genomics.vcf.gz.avinput.myanno -remove -protocol refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f -nastring . -csvout"
-        cmd = ['table_annovar.pl ','vcf_path','/usr/local/ngs/annovar/humandb/','-buildver hg19','-out',
-               self.project_id+self.barcode,'-remove','-protocol',
-               'refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,'
-               'clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f',
-               '-csvout']
+        vcf_path = os.path.join(TORRENT_PIPELINE_DATA_DIR,self.project_id,'pluging_out','variantCaller_out*',self.barcode
+                                ,'TSVC_variants.genome.vcf')
+
+        ## command to run ANNOVAR
+        ## 1. convert vcf to input format
+        ## 2. run annovar with parameter
+        cmd_input = ['sudo',
+                     '/usr/local/ngs/annovar/convert2annovar.pl',
+                     '-format',
+                     'vcf4',
+                     vcf_path,
+                     '-buildver hg19',
+                     '-out',
+                     '-outfile',
+                     'input.avinput']
 
 
-        cmd = ['/usr/local/ngs/annovar/table_annovar.pl ',vcf_path,'/usr/local/ngs/annovar/humandb/','-buildver hg19',
-               '-out',
-               'test.myanno','-remove','-protocol',
-               'refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,'
-               'clinvar_20160302,cosmic70,nci60 -operation g,g,g,r,r,f,f,f,f,f,f,f',
-               '-csvout']
+        cmd_execute = ['sudo',
+                        '/usr/local/ngs/annovar/table_annovar.pl',
+                       'input.avinput',
+                       '/usr/local/ngs/annovar/humandb/',
+                        '-buildver',
+                       'hg19',
+                       '-out',
+                       'myannovar_output',
+                       '-remove',
+                       '-protocol',
+                       'refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,clinvar_20160302,cosmic70,nci60',
+                       '-operation',
+                       'g,g,g,r,r,f,f,f,f,f,f,f',
+                       '-nastring',
+                       '.',
+                       '-csvout']
 
-        subprocess.call(cmd, stdout=outfile, stdin=outfile)
+        ## call the two bash command from python
+        subprocess.call(cmd_input, stdout=outfile, stdin=outfile)
+        subprocess.call(cmd_execute, stdout=outfile,stdin=outfile)
+
         print ('ANNOTATION STEP COMPLETE : ANNOVAR Finished!!!')
         print outfile.path
         outfile.close()
 
+## this reads the ANNOVAR generated csv files
+class VariantAnnotationDBTask(luigi.task):
+    def requires(self):
+        return VariantAnnotationTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
+                 process_id=self.process_id,
+                        barcode=self.barcode, table_name='annotaion_variant_table', torrent_folder=self.torrent_folder,
+                        torrent_runid=self.torrent_runid)
+    def output(self):
+        return luigi.LocalTarget('output/%s/%s/%s_%s_%s_%s_annotated_variant.csv' % (self.new_project_id,
+                                                                                    self.process_id,self.project_id,
+                                                                     self.process_id, self.torrent_runid, self.barcode))
+
+    def run(self):
+        #json_results_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,
+        # JSON_RESULTS)),key=os.path.getmtime)
+        omim_database_path = os.path.join(TORRENT_PIPELINE_DATABASE_DIR,'omim_new_info.csv')
+        annovar_csv_path = os.path.join(TORRENT_PIPELINE_OUTPUT_DIR,self.project_id,self.barcode,'myannovar_output')
+        annovar_df = DataFrame.from_csv(annovar_csv_path,index_col=False)
+        annovar_df.insert(0,'project_id','ACC101')
+        omim_database_df = DataFrame.from_csv(omim_database_path,index_col=None)
+
+        annotated_df = DataFrame.merge(annovar_df,omim_database_df,how="left",on="Gene.refGene")
+        ## ADD the INDEX as LIMS ID
+        annotated_df['project_id'] = Series('ACC101',index=annotated_df.index)
+
+        ## write to csv file to keep an record
+        annotated_df.to_csv(self.output(),header=True,index=False)
+
+        annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=true)
 
 
 class CalculateRunTask(luigi.task):
