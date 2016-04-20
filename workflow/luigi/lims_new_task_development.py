@@ -49,6 +49,17 @@ __LIMS__ = Lims(BASEURI, USERNAME, PASSWORD)
 
 ## set a working directory
 #os.chdir('/Volumes/Genetics/Ion_Workflow')
+
+# Initialization
+os.system('mkdir %s' % '/Volumes/Genetics')
+os.system('mkdir %s' % '/Volumes/NGS')
+# os.system('mkdir /Volumes/NGS')
+#os.system('mount -t smbfs //GUEST:@pgm.bdx.com/Runs %s' % TORRENT_01_MOUNT)
+#os.system('mount -t smbfs //GUEST:@pgm2.bdx.com/Runs %s' % TORRENT_02_MOUNT)
+
+os.system("mount_smbfs //'mako;jyen:qazwsx0305!!'@10.0.1.12/Genetics /Volumes/Genetics")
+os.system("mount_smbfs //jyen:MakoGen1@makogene/jyen /Volumes/NGS")
+
 os.chdir('/Volumes/NGS/Ion_Workflow/')
 
 TORRENT_DATA = 'ionadmin@10.0.1.74:/home/ionguest/results/analysis/output/Home'
@@ -75,11 +86,7 @@ TORRENT_PIPELINE_DATABASE_DIR = '/Volumes/NGS/Ion_Workflow/database'
 
 ENGINE = create_engine('postgresql+psycopg2://postgres:seqstats@10.0.1.79:5432/seqdb')
 
-
-
 sys.path.append('/home/jyen/workspace/mako_pipeline-development_ampliseq')
-
-
 
 #TORRENT_URL_MAP = {'iontorrent01':'http://pgm.bdx.com','iontorrent02':'http://pgm2.bdx.com'}
 TORRENT_URL_MAP = {'ionadmin':'http://10.0.1.74','ionadmin':'http://10.0.1.74'}
@@ -105,7 +112,7 @@ def get_torrent_folder(torrent_server, torrent_report):
     else:
         ts_api_request.raise_for_status()
 
-filename = 'output/cron_job/log_luigi_CalculateRunTask_complete.txt'
+filename = '/output/cron_job/log_luigi_CalculateRunTask_complete.txt'
 if os.path.exists(filename):
     try:
         os.remove(filename)
@@ -181,16 +188,16 @@ class FindNewTorrentRunsTask(luigi.Task):
         with self.output().open('w') as outfile:
             outfile.write(' ======= FindNewRunsTask Done! ====== {t}'.format(t=timestamp))
 
-class CopyRunTask(luigi.task):
-    new_project_id = luigi.parameter()
-    project_id = luigi.parameter()
-    process_id = luigi.parameter()
-    torrent_folder = luigi.parameter()
-    torrent_runid = luigi.parameter()
+class CopyRunTask(luigi.Task):
+    new_project_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    process_id = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(
-            'output/%s/%s/log_file_CopyRunTask_%s_%s_complete.txt' % (self.new_project_id, self.process_id, self.process_id,self.torrent_runid))
+            'output/%s/%s/log_file_CopyRunTask_%s__complete.txt' % (self.new_project_id, self.process_id, self.process_id))
 
     def run(self):
         target_dir = os.path.join(TORRENT_PIPELINE_OUTPUT_DIR,self.new_project_id,self.process_id, '')
@@ -208,7 +215,8 @@ class CopyRunTask(luigi.task):
         print outfile.path
         outfile.close()
 
-class TableTask(luigi.task):
+class TableTask(luigi.Task):
+    data_dir = luigi.Parameter()
     new_project_id = luigi.Parameter()
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
@@ -240,13 +248,17 @@ class TableTask(luigi.task):
             outfile.write('done at finished at {t}'.format(t=timestamp))
 
 class QCMetricsTask(luigi.ExternalTask):
+    data_dir = luigi.Parameter()
     new_project_id = luigi.Parameter()
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
     barcode    = luigi.Parameter()
+    table_name = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid = luigi.Parameter()
     def requires(self):
-        return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
-                 process_id=self.process_id,
+        return QCMetricsTask(self.data_dir,new_project_id=self.new_project_id,project_id=self.project_id,
+                             process_id=self.process_id,
                         barcode=self.barcode, table_name='QC_metrics_table', torrent_folder=self.torrent_folder,
                         torrent_runid=self.torrent_runid)
 
@@ -255,15 +267,18 @@ class QCMetricsTask(luigi.ExternalTask):
                                                                      self.process_id, self.torrent_runid, self.barcode))
 
     def run(self):
-        json_results_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,JSON_RESULTS)),key=os.path.getmtime)
+        #json_results_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,
+        # JSON_RESULTS)),key=os.path.getmtime)
 
-        json_results = read_json(json_results_path, orient='records')
+        #json_results = read_json(json_results_path, orient='records')
 
 
         ## this is a testing area
         ##
-        json_qc_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out' \
-                       '/coverageAnalysis_out.6/results.json'
+        # json_qc_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out' \
+        #                '/coverageAnalysis_out.6/results.json'
+        json_qc_path = max(glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,
+                        JSON_RESULTS)),key=os.path.getmtime)
 
         with open(json_qc_path) as json_data:
             data = json.load(json_data)
@@ -285,12 +300,16 @@ class QCMetricsDBTask(TableTask):
                             barcode=self.barcode, table_name=self.table_name, torrent_folder=self.torrent_folder,
                             torrent_runid=self.torrent_runid)
 
-class VariantAnnotationTask(luigi.task):
+class VariantAnnotationTask(luigi.ExternalTask):
+    data_dir = luigi.Parameter()
     new_project_id = luigi.Parameter()
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
     barcode    = luigi.Parameter()
-    os.chdir('/Volumes/NGS/Ion_Workflow/output')
+    table_name = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid = luigi.Parameter()
+    #os.chdir('/Volumes/NGS/Ion_Workflow/output')
 
     def requires(self):
         return QCMetricsTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
@@ -350,7 +369,15 @@ class VariantAnnotationTask(luigi.task):
         outfile.close()
 
 ## this reads the ANNOVAR generated csv files
-class VariantAnnotationDBTask(luigi.task):
+class VariantAnnotationDBTask(luigi.ExternalTask):
+    data_dir = luigi.Parameter()
+    new_project_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    process_id = luigi.Parameter()
+    barcode    = luigi.Parameter()
+    table_name = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid = luigi.Parameter()
     def requires(self):
         return VariantAnnotationTask(data_dir=self.data_dir, new_project_id=self.new_project_id,project_id=self.project_id,
                  process_id=self.process_id,
@@ -380,12 +407,12 @@ class VariantAnnotationDBTask(luigi.task):
         annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=true)
 
 
-class CalculateRunTask(luigi.task):
-    process_id = luigi.parameter()
-    project_id = luigi.parameter()
-    new_project_id = luigi.parameter()
-    torrent_folder = luigi.parameter()
-    torrent_runid  = luigi.parameter()
+class CalculateRunTask(luigi.Task):
+    process_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    new_project_id = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid  = luigi.Parameter()
 
     def requires(self):
         # Use Process python object to get the samples for the PGM run
@@ -427,8 +454,6 @@ class CalculateRunTask(luigi.task):
         with self.output().open('w') as outfile:
             outfile.write('Congratulations! Luigi Root Task at finished')
         print "======= CONGRATULATIONS! ALL Luigi Tasks COMPLETED! ======"
-
-
 
 
 if __name__ == '__main__':
