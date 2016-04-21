@@ -208,9 +208,10 @@ class CopyRunTask(luigi.Task):
 
         ## rsync -avz -e "sshpass -p ionadmin ssh -p 4040" ionadmin@10.0.1.74:/home/ionguest/results/analysis/output/Home/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017 .
 
-        cmd = ['rsync', '-ahv' ,'-e ','"sshpass -p ionadmin ssh -p 4040" ','--no-links','--progress',
-               os.path.join(self.torrent_folder, ''), target_dir]
-        subprocess.call(cmd, stdout=outfile, stdin=outfile)
+        cmd = ['rsync -ahv -e "sshpass -p ionadmin ssh -p 4040"',self.torrent_folder,target_dir]
+        subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        #(out, err) = proc.communicate()
+        #subprocess.call(cmd, stdout=outfile, stdin=outfile)
         print ('COPY STEP COMPLETE : rsync Finished!!!')
         print outfile.path
         outfile.close()
