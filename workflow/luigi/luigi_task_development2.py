@@ -53,6 +53,22 @@ annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=t
 
 ## CLEAN UP THE COLUMNS
 
+
+## THIS PART DOES THE QC STEP
+json_qc_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out/coverageAnalysis_out.6/results.json'
+               # json_qc_path = os.path.join(self.data_dir,self.new_project_id,self.process_id,JSON_RESULTS)
+print 'this is the json qc path ',json_qc_path
+
+with open(json_qc_path) as json_data:
+        data = json.load(json_data)
+            #print data
+json_qc_dataframe = DataFrame.from_dict(data['barcodes']).transpose()
+json_qc_dataframe.insert(0,'project_id','ACC101')
+json_qc_dataframe.insert(1,'barcode_id','IonCode010')
+json_qc_dataframe.to_sql('qc_table',ENGINE,if_exists='replace',index=true)
+
+
+
 ###
 
 
