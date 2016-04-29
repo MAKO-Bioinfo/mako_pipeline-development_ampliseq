@@ -33,6 +33,7 @@ import re
 import sys
 import errno
 import json
+import csv
 
 from genologics.lims import *
 from genologics.config import BASEURI, USERNAME, PASSWORD
@@ -48,7 +49,6 @@ __LIMS__ = Lims(BASEURI, USERNAME, PASSWORD)
 
 ## SLACK
 #from slacker import Slacker
-#slack = Slacker('xoxp-21780827223-21781484598-38317813991-29bc9c6ea3')
 
 
 ## set a working directory
@@ -529,7 +529,7 @@ class VariantAnnotationDataFrameTask(luigi.ExternalTask):
         list =[]
         for file in allFile:
             barcode_id = os.path.splitext(file)[0].split('/')[3].replace('_myannovar_output.hg19_multianno','')
-            df = read_csv(file,index_col=None)
+            df = read_csv(file,index_col=None,quoting=csv.QUOTE_NONE, encoding='utf-8')
             df['barcode_id'] = barcode_id
             list.append(df)
         vcf_complete_frame = pandas.concat(list)
