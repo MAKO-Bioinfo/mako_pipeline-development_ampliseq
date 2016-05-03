@@ -64,8 +64,6 @@ os.system('mkdir %s' % '/Volumes/NGS')
 os.system("mount_smbfs //'mako;jyen:qazwsx0305!!'@10.0.1.12/Genetics /Volumes/Genetics")
 os.system("mount_smbfs //jyen:MakoGen1@makogene/jyen /Volumes/NGS")
 
-os.chdir('/Volumes/NGS/Ion_Workflow/')
-
 TORRENT_DATA = 'ionadmin@10.0.1.74:/home/ionguest/results/analysis/output/Home'
 
 # Constants for LIMS UDFs
@@ -80,10 +78,19 @@ LIMS_BARCODE_UDF = 'Sequencing Barcode'
 JSON_RESULTS             = 'plugin_out/coverageAnalysis_out*/results.json'
 VCF_GLOB                 = 'plugin_out/variantCaller_out*/{0}/TSVC_variants.genome.vcf'
 
+
+# os.chdir('/Volumes/NGS/Ion_Workflow/')
+os.chdir('/home/jyen/Ion_Workflow')
+## INPUT & OUTPUT FOLDERS THIS IS RUNNING LOCALLY
+# TORRENT_PIPELINE_DATA_DIR = '/Volumes/NGS/Ion_Workflow/data'
+# TORRENT_PIPELINE_OUTPUT_DIR = '/Volumes/NGS/Ion_Workflow/output'
+# TORRENT_PIPELINE_DATABASE_DIR = '/Volumes/NGS/Ion_Workflow/database'
+
 ## INPUT & OUTPUT FOLDERS
-TORRENT_PIPELINE_DATA_DIR = '/Volumes/NGS/Ion_Workflow/data'
-TORRENT_PIPELINE_OUTPUT_DIR = '/Volumes/NGS/Ion_Workflow/output'
-TORRENT_PIPELINE_DATABASE_DIR = '/Volumes/NGS/Ion_Workflow/database'
+TORRENT_PIPELINE_DATA_DIR = '/home/jyen/Ion_Workflow/data'
+TORRENT_PIPELINE_OUTPUT_DIR = '/home/jyen/Ion_Workflow/output'
+TORRENT_PIPELINE_DATABASE_DIR = '/home/jyen/Ion_Workflow/database'
+
 
 #SQLAlchemy postgreSQL ENGINE
 ## this is for local connection
@@ -564,6 +571,9 @@ class VariantAnnotationDBTask(luigi.Task):
         #df.to_sql(self.table_name,ENGINE,if_exists='replace',index=False)
 
         print "=== Update annotated_variant_table COMPLETE ==="
+        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
+        with self.output().open('w') as outfile:
+            outfile.write('done at finished at {t}'.format(t=timestamp))
 
 class CalculateRunTask(luigi.ExternalTask):
     process_id = luigi.Parameter()
