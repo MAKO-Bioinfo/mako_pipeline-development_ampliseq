@@ -135,7 +135,6 @@ class FindNewTorrentRunsTask(luigi.Task):
     def output(self):
         timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
         return luigi.LocalTarget('output/cron_job/log_findNewRuntask_%s.txt'%(timestamp))
-        #return luigi.LocalTarget('output/cron_job/log_findNewRuntask.txt')
 
     def requires(self):
 
@@ -199,13 +198,12 @@ class FindNewTorrentRunsTask(luigi.Task):
                 tasks.append(CalculateRunTask(new_project_id=new_project_id,project_id=project,process_id=process_id,
                                               torrent_folder=run_paths,
                                               torrent_runid=runid))
+                timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
+                with self.output().open('w') as outfile:
+                    outfile.write(' ======= FindNewRunsTask Done! ====== {t}'.format(t=timestamp))
 
         return tasks
 
-    def run(self):
-        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
-        with self.output().open('w') as outfile:
-            outfile.write(' ======= FindNewRunsTask Done! ====== {t}'.format(t=timestamp))
 
 class CopyRunTask(luigi.Task):
     new_project_id = luigi.Parameter()
@@ -217,9 +215,10 @@ class CopyRunTask(luigi.Task):
 
     ## Copy Task cannot depend on any tasks
     # def requires(self):
-    #     return CalculateRunTask(new_project_id=self.new_project_id,project_id=self.project_id,
+    #     return FindNewTorrentRunsTask(new_project_id=self.new_project_id,project_id=self.project_id,
     #                     process_id=self.process_id,torrent_folder=self.torrent_folder,
     #                     torrent_runid=self.torrent_runid)
+    #
 
     def output(self):
         return luigi.LocalTarget('output/%s/%s/log_file_CopyRunTask_complete.txt' % (self.new_project_id, self.process_id))
@@ -248,45 +247,44 @@ class CopyRunTask(luigi.Task):
         print outfile.path
         outfile.close()
 
-class TableTask(luigi.Task):
-    data_dir = luigi.Parameter()
-    new_project_id = luigi.Parameter()
-    project_id = luigi.Parameter()
-    process_id = luigi.Parameter()
-    barcode = luigi.Parameter()
-    table_name = luigi.Parameter()
-    torrent_folder = luigi.Parameter()
-    torrent_runid  = luigi.Parameter()
-    def output(self):
-        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
-        return luigi.LocalTarget('output/log/%s_%s_%s_%s_%s_%s.txt' % (
-            self.project_id, self.process_id, self.torrent_runid, self.barcode, self.table_name, 'complete'))
-    def run(self):
-        df = DataFrame.from_csv(self.input().path,parse_dates=False)
-        connection = ENGINE.connect()
-        # #===========================================================================##
-        # # This will update base_statistics, amplicon statistics, chip_statistics table whenever there's a code change
-        # # it wiil scan row by row (each row per project_id) and delete existed row
-        # # replace by the new ones
-        # #===========================================================================##
-            #if ENGINE.dialect.has_table(connection, self.table_name):
-            #    if self.table_name : ['base_statistics','amplicon_statistics','barcode_statistics']
-        connection.execute("DELETE from %s WHERE project_id= '%s' AND barcode_id= '%s'" %(self.table_name,
-                                                                                        self.project_id,self.barcode))
-        connection.close()
-        df.to_sql(self.table_name,ENGINE,if_exists='append',index=True)
-        print "===== Update tables COMPLETE! ===="
+# class TableTask(luigi.Task):
+#     data_dir = luigi.Parameter()
+#     new_project_id = luigi.Parameter()
+#     project_id = luigi.Parameter()
+#     process_id = luigi.Parameter()
+#     barcode = luigi.Parameter()
+#     table_name = luigi.Parameter()
+#     torrent_folder = luigi.Parameter()
+#     torrent_runid  = luigi.Parameter()
+#     def output(self):
+#         timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
+#         return luigi.LocalTarget('output/log/%s_%s_%s_%s_%s_%s.txt' % (
+#             self.project_id, self.process_id, self.torrent_runid, self.barcode, self.table_name, 'complete'))
+#     def run(self):
+#         df = read_csv(self.input().path,parse_dates=False, encoding='utf-8',error_bad_lines=False)
+#         connection = ENGINE.connect()
+#         if ENGINE.has_table(self.table_name)==True:
+#            connection.execute("DELETE from %s WHERE project_id= '%s' AND barcode_id= '%s'" %(self.table_name,
+#                                                                                     self.project_id,self.barcode))
+#         else:
+#             connection.execute("CREATE TABLE %s()" %(self.table_name))
+#         connection.close()
+#         df.to_sql(self.table_name,ENGINE,if_exists='append',index=False)
+#
+#         # #===========================================================================##
+#         # # This will update base_statistics, amplicon statistics, chip_statistics table whenever there's a code change
+#         # # it wiil scan row by row (each row per project_id) and delete existed row
+#         # # replace by the new ones
+#         # #===========================================================================##
+#
 
-        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
-        with self.output().open('w') as outfile:
-            outfile.write('done at finished at {t}'.format(t=timestamp))
 
 class QCMetricsTask(luigi.ExternalTask):
     data_dir = luigi.Parameter()
     new_project_id = luigi.Parameter()
     project_id = luigi.Parameter()
     process_id = luigi.Parameter()
-    barcode    = luigi.Parameter()
+    #barcode    = luigi.Parameter()
     table_name = luigi.Parameter()
     torrent_folder = luigi.Parameter()
     torrent_runid = luigi.Parameter()
@@ -326,12 +324,44 @@ class QCMetricsTask(luigi.ExternalTask):
 
         #json_qc_dataframe.to_sql('qc_table',ENGINE,if_exists='replace',index=true)
 
-class QCMetricsDBTask(TableTask):
+class QCMetricsDBTask(luigi.Task):
+    data_dir = luigi.Parameter()
+    new_project_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    process_id = luigi.Parameter()
+    #barcode = luigi.Parameter()
+    table_name = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid  = luigi.Parameter()
     def requires(self):
         return QCMetricsTask(data_dir=self.data_dir,new_project_id=self.new_project_id,project_id=self.project_id,
                              process_id=self.process_id,
-                             barcode=self.barcode, table_name='QC_metrics_table', torrent_folder=self.torrent_folder,
+                             table_name='qc_table', torrent_folder=self.torrent_folder,
                              torrent_runid=self.torrent_runid)
+    def output(self):
+        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
+        return luigi.LocalTarget('output/log/%s_%s_%s_%s_%s.txt' % (
+            self.project_id, self.process_id, self.torrent_runid, self.table_name, 'complete'))
+
+    def run(self):
+        df = read_csv(self.input().path,parse_dates=False, encoding='utf-8',error_bad_lines=False)
+        # connection = ENGINE.connect()
+        # if ENGINE.has_table(self.table_name)==True:
+        #    connection.execute("DELETE from %s WHERE project_id= '%s' AND barcode_id= '%s'" %(self.table_name,
+        #                                                                             self.project_id,self.barcode))
+        #    connection.close()
+        #    df.to_sql(self.table_name,ENGINE,if_exists='append',index=True)
+        # if ENGINE.has_table(self.table_name)==False:
+        #    connection.close()
+        #    #connection.execute("CREATE TABLE %s(project_id varchar(255),barcode_id varchar(255))" %(self.table_name))
+        df.to_sql(self.table_name,ENGINE,if_exists='replace',index=False)
+
+        #df.to_sql(self.table_name,ENGINE,if_exists='append',index=False)
+        print "===== Update QC tables COMPLETE! ===="
+        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
+        with self.output().open('w') as outfile:
+            outfile.write('done at finished at {t}'.format(t=timestamp))
+
 
 class VariantAnnotationInputTask(luigi.ExternalTask):
     data_dir = luigi.Parameter()
@@ -364,13 +394,6 @@ class VariantAnnotationInputTask(luigi.ExternalTask):
         vcf_glob = VCF_GLOB.format(self.barcode)
         vcf_glob_path = glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,vcf_glob))[0]
 
-        # vcf_path = os.path.join(TORRENT_PIPELINE_DATA_DIR,self.new_project_id,'pluging_out','variantCaller_out*',
-        #                         self.barcode,'TSVC_variants.genome.vcf')
-
-        # vcf_path_glob = glob.glob(os.path.join(self.data_dir,self.new_project_id,self.process_id,'pluging_out',
-        #                                         'variantCaller_out*',self.barcode,'TSVC_variants.genome.vcf'))
-        # vcf_path_glob = os.path.join(self.data_dir,self.new_project_id,self.process_id,'pluging_out',
-        #                              'variantCaller_out.8', 'IonCode_0101','TSVC_variants.genome.vcf')
         vcf_path_glob_str = str(vcf_glob_path).strip('[]').replace("'","")
         print 'this is the vcf path ',vcf_glob_path
         #print vcf_path_glob_str
@@ -385,48 +408,13 @@ class VariantAnnotationInputTask(luigi.ExternalTask):
                      os.path.join(TORRENT_PIPELINE_OUTPUT_DIR,self.new_project_id,self.process_id,
                                   self.barcode+'input.avinput')]
         print 'executing ANNOVAR step1 ',cmd_input
-        subprocess.call(cmd_input)
-
-
-        # cmd_execute = ['/usr/local/ngs/annovar/table_annovar.pl',
-        #                self.barcode+'input.avinput',
-        #                '/usr/local/ngs/annovar/humandb/',
-        #                 '-buildver',
-        #                'hg19',
-        #                '-out',
-        #                self.barcode+'myannovar_output',
-        #                '-remove',
-        #                '-protocol',
-        #                'refGene,knowngene,ensgene,cytoBand,genomicSuperDups,snp138,cg46,popfreq_all_20150413,ljb26_all,clinvar_20160302,cosmic70,nci60',
-        #                '-operation',
-        #                'g,g,g,r,r,f,f,f,f,f,f,f',
-        #                '-nastring',
-        #                '.',
-        #                '-csvout']
-        # print 'executing ANNOVAR step2 ',cmd_execute
-        # ## call the two bash command from python
-        # subprocess.call(cmd_execute,stdout=outfile,stdin=outfile,cwd=os.path.join('output',self.new_project_id,
-        #                                                                           self.process_id))
-
-        # # read all annotated annovar output csv files into a dataframe
-        # allFile = glob.glob(os.path.join('*multianno.csv'))
-        # print 'these are all the annocated csv ',allFile
-        # vcf_complete_frame = pandas.DataFrame()
-        # list =[]
-        # for file in allFile:
-        #     df = read_csv(file,index_col=None)
-        #     list.append(df)
-        # vcf_complete_frame = pandas.concat(list)
-        # vcf_complete_frame.to_csv(self.output().path, header=True, index=False)
-
-        #print ('ANNOTATION STEP 1 COMPLETE : ANNOVAR Input Finished!!!')
-
+        #subprocess.call(cmd_input)
 
         with self.output().open('w') as outfile:
+            subprocess.call(cmd_input,stdout=outfile,stderr=outfile)
             outfile.write('ANNOTATION STEP 1 COMPLETE : ANNOVAR Input Finished!!!')
         print "======= ANNOTATION STEP 1 COMPLETE : ANNOVAR Input Finished!!! ======"
-        #print outfile.path
-        #outfile.close()
+
 
 class VariantAnnotationExecuteTask(luigi.ExternalTask):
     data_dir = luigi.Parameter()
@@ -444,8 +432,6 @@ class VariantAnnotationExecuteTask(luigi.ExternalTask):
                         barcode=self.barcode, table_name='annotated_variant_table', torrent_folder=self.torrent_folder,
                         torrent_runid=self.torrent_runid)
     def output(self):
-        # return luigi.LocalTarget('output/%s/%s/%s_%s_%s_variant_table.csv' % (self.new_project_id, self.process_id,
-        #                                                           self.project_id, self.process_id,self.barcode))
         return luigi.LocalTarget('output/%s/%s/log_file_VariantAnnotationExecuteTask_%s_complete.txt' % (
                                     self.new_project_id,self.process_id,self.barcode))
     def run(self):
@@ -453,10 +439,6 @@ class VariantAnnotationExecuteTask(luigi.ExternalTask):
         ## this is a testing area
         # vcf_path = '/Volumes/Genetics/Ion_Workflow/Auto_user_S5-00391-3-Cancer_Hotspot_Panel_v2_54_017/plugin_out' \
         #            '/variantCaller_out.8/IonCode_0101/TSVC_variants.genome.vcf'
-
-        #os.chdir(os.path.join(TORRENT_PIPELINE_OUTPUT_DIR,self.new_project_id,self.process_id))
-        outfile = self.output().open('w')
-
 
         ## command to run ANNOVAR
         ## 2. run annovar with parameter
@@ -478,7 +460,7 @@ class VariantAnnotationExecuteTask(luigi.ExternalTask):
                        '-csvout']
         print 'executing ANNOVAR step2 ',cmd_execute
         ## call the two bash command from python
-        subprocess.check_output(cmd_execute,cwd=os.path.join('output',self.new_project_id,self.process_id))
+        #subprocess.call(cmd_execute,cwd=os.path.join('output',self.new_project_id,self.process_id))
         #subprocess.check_output(cmd_execute)
 
         # # read all annotated annovar output csv files into a dataframe
@@ -492,12 +474,18 @@ class VariantAnnotationExecuteTask(luigi.ExternalTask):
         # vcf_complete_frame = pandas.concat(list)
         # vcf_complete_frame.to_csv(self.output().path, header=True, index=False)
 
-        print ('ANNOTATION STEP 2 COMPLETE : ANNOVAR Execution Finished!!!')
-        print outfile.path
-        outfile.close()
+        with self.output().open('w') as outfile:
+            subprocess.call(cmd_execute,stdout=outfile,stderr=outfile,cwd=os.path.join('output',self.new_project_id,self.process_id))
+            outfile.write('ANNOTATION STEP 2 COMPLETE : ANNOVAR Execution Finished!!!')
+        print "======= ANNOTATION STEP 2 COMPLETE : ANNOVAR Execution Finished!!! ======"
+
+
+        #print ('ANNOTATION STEP 2 COMPLETE : ANNOVAR Execution Finished!!!')
+        #print outfile.path
+        #outfile.close()
 
 ## this reads the ANNOVAR generated csv files
-class VariantAnnotationDataFrameTask(luigi.ExternalTask):
+class VariantAnnotationDataFrameTask(luigi.Task):
     data_dir = luigi.Parameter()
     new_project_id = luigi.Parameter()
     project_id = luigi.Parameter()
@@ -509,63 +497,73 @@ class VariantAnnotationDataFrameTask(luigi.ExternalTask):
     def requires(self):
         return VariantAnnotationExecuteTask(data_dir=self.data_dir, new_project_id=self.new_project_id,
                                       project_id=self.project_id,
-                                        process_id=self.process_id,
-                        barcode=self.barcode, table_name='annotated_variant_table', torrent_folder=self.torrent_folder,
+                                      process_id=self.process_id,
+                        barcode=self.barcode,table_name='annotated_variant_table', torrent_folder=self.torrent_folder,
                         torrent_runid=self.torrent_runid)
     def output(self):
         return luigi.LocalTarget('output/%s/%s/%s_%s_annotated_variant.csv' % (self.new_project_id,self.process_id,
                                                                           self.project_id,self.process_id))
 
     def run(self):
-
         ## this is the OMIM database information
         omim_database_path = os.path.join(TORRENT_PIPELINE_DATABASE_DIR,'omim_new_info_modified.csv')
         omim_database_df = DataFrame.from_csv(omim_database_path,index_col=None)
 
         # read all annotated annovar output csv files into a dataframe
         allFile = glob.glob(os.path.join('output',self.new_project_id,self.process_id,'*multianno.csv'))
-        print 'these are all the annocated csv files ',allFile
+        print 'these are all the annotated csv files ',allFile
         vcf_complete_frame = pandas.DataFrame()
         list =[]
         for file in allFile:
             barcode_id = os.path.splitext(file)[0].split('/')[3].replace('_myannovar_output.hg19_multianno','')
-            df = read_csv(file,index_col=None,quoting=csv.QUOTE_NONE, encoding='utf-8')
+            df = read_csv(file,index_col=None,sep=None,engine='python')
+            df.replace('.','NaN',inplace=True)
             df['barcode_id'] = barcode_id
             list.append(df)
         vcf_complete_frame = pandas.concat(list)
         #vcf_complete_frame.insert(0,'project_id',self.project_id)
         #vcf_complete_frame.to_csv(self.output().path, header=True, index=False)
-
+        #vcf_complete_frame.to_csv('test.csv',header=True,index=False)
         annotated_df = DataFrame.merge(vcf_complete_frame,omim_database_df,how="left",on="Gene.refGene")
         annotated_df.insert(0,'project_id',self.project_id)
-
+        #annotated_df.replace(regex=r"( +\.)|#", value=pd.np.NaN, inplace=True)
         annotated_df.to_csv(self.output().path, header=True, index=False)
         #annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=true)
 
-        #print ' annotation_variant_table to postgreSQL database complete ! '
+class VariantAnnotationDBTask(luigi.Task):
+    data_dir = luigi.Parameter()
+    new_project_id = luigi.Parameter()
+    project_id = luigi.Parameter()
+    process_id = luigi.Parameter()
+    barcode = luigi.Parameter()
+    table_name = luigi.Parameter()
+    torrent_folder = luigi.Parameter()
+    torrent_runid  = luigi.Parameter()
 
-        #annovar_csv_path = os.path.join(TORRENT_PIPELINE_OUTPUT_DIR,self.project_id,self.barcode,'myannovar_output')
-        #annovar_df = DataFrame.from_csv(annovar_csv_path,index_col=False)
-        #annovar_df.insert(0,'project_id','ACC101')
-        #omim_database_df = DataFrame.from_csv(omim_database_path,index_col=None)
-
-        #annotated_df = DataFrame.merge(annovar_df,omim_database_df,how="left",on="Gene.refGene")
-        ## ADD the INDEX as LIMS ID
-        #annotated_df['project_id'] = Series('ACC101',index=annotated_df.index)
-
-        ## write to csv file to keep an record
-        #annotated_df.to_csv(self.output(),header=True,index=False)
-
-        #annotated_df.to_sql('annotated_variant_table',ENGINE,if_exists='replace',index=true)
-
-class VariantAnnotationDBTask(TableTask):
     def requires(self):
         return VariantAnnotationDataFrameTask(data_dir=self.data_dir,new_project_id=self.new_project_id,project_id=self.project_id,
                              process_id=self.process_id,
-                             barcode=self.barcode, table_name='annotated_variant_table',
-                             torrent_folder=self.torrent_folder,
-                             torrent_runid=self.torrent_runid)
+                             barcode=self.barcode,table_name='annotated_variant_table',
+                             torrent_folder=self.torrent_folder,torrent_runid=self.torrent_runid)
+    def output(self):
+        timestamp = time.strftime('%Y%m%d.%H%M%S', time.localtime())
+        return luigi.LocalTarget('output/log/%s_%s_%s_%s_%s.txt' % (
+            self.project_id, self.process_id, self.torrent_runid, self.table_name, 'complete'))
 
+    def run(self):
+        df = read_csv(self.input().path,parse_dates=False, encoding='utf-8',error_bad_lines=False)
+        # connection = ENGINE.connect()
+        # if ENGINE.has_table(self.table_name)==True:
+        #    connection.execute("DELETE from %s WHERE project_id= '%s'" %(self.table_name, self.project_id))
+        #    connection.close()
+        #    df.to_sql(self.table_name,ENGINE,if_exists='append',index=False)
+        #
+        # if ENGINE.has_table(self.table_name)==False:
+        #    connection.close()
+        df.to_sql(self.table_name,ENGINE,if_exists='replace',index=False)
+        #df.to_sql(self.table_name,ENGINE,if_exists='replace',index=False)
+
+        print "=== Update annotated_variant_table COMPLETE ==="
 
 class CalculateRunTask(luigi.ExternalTask):
     process_id = luigi.Parameter()
@@ -606,12 +604,13 @@ class CalculateRunTask(luigi.ExternalTask):
             #                             torrent_runid=self.torrent_runid))
             tasks.append(QCMetricsDBTask(data_dir=TORRENT_PIPELINE_DATA_DIR,new_project_id=self.new_project_id,
                                 project_id=self.project_id,
-                                 process_id=self.process_id, barcode=barcode, table_name='qc_table',
+                                 process_id=self.process_id,table_name='qc_table',
                                  torrent_folder=self.torrent_folder, torrent_runid=self.torrent_runid))
 
             tasks.append(VariantAnnotationDBTask(data_dir=TORRENT_PIPELINE_DATA_DIR,new_project_id=self.new_project_id,
                                         project_id=self.project_id,
-                                         process_id=self.process_id, barcode=barcode, table_name='annotated_variant_table',
+                                         process_id=self.process_id, barcode=barcode,
+                                         table_name='annotated_variant_table',
                                          torrent_folder=self.torrent_folder,torrent_runid=self.torrent_runid))
         return tasks
 
